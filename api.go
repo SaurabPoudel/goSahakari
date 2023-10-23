@@ -30,11 +30,13 @@ func makeHTTHandleFunc(f apiFunc) http.HandlerFunc {
 
 type APIServer struct {
 	listenAddr string
+	store      Storage
 }
 
-func NewAPIServer(listenAddr string) *APIServer {
+func NewAPIServer(listenAddr string, store Storage) *APIServer {
 	return &APIServer{
 		listenAddr: listenAddr,
+		store:      store,
 	}
 }
 
@@ -42,7 +44,7 @@ func (s *APIServer) Run() {
 	router := mux.NewRouter()
 	router.HandleFunc("/account", makeHTTHandleFunc(s.hadleAccount))
 
-	router.HandleFunc("/account/{id}", makeHTTHandleFunc(s.hadleGetAccount))
+	router.HandleFunc("/account/{id}", makeHTTHandleFunc(s.hadleGetAccountById))
 
 	log.Println("JSON API server running on port: ", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
@@ -58,14 +60,22 @@ func (s *APIServer) hadleAccount(w http.ResponseWriter, r *http.Request) error {
 	return fmt.Errorf("method not allowed %s", r.Method)
 }
 
-func (s *APIServer) hadleGetAccount(w http.ResponseWriter, r *http.Request) error {
+func (s *APIServer) hadleGetAccountById(w http.ResponseWriter, r *http.Request) error {
 	id := mux.Vars(r)["id"]
 	fmt.Println(id)
 	return WriteJSON(w, http.StatusOK, &Account{})
 }
 
 func (s *APIServer) hadleCreateAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	createAccountReq := new(CreateAccountRequest)
+	if err := json.NewDecoder(r.Body).Decode(createAccountReq); err != nil {
+		return err
+	}
+	account := NewAccount(createAccountReq.FirstName, createAccountReq.LastName)
+	if err := s.store.CreateAccount(account); err != nil {
+		return err
+	}
+	return WriteJSON(w, http.StatusOK, account)
 }
 
 func (s *APIServer) hadleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
@@ -74,4 +84,14 @@ func (s *APIServer) hadleDeleteAccount(w http.ResponseWriter, r *http.Request) e
 
 func (s *APIServer) handleTransfer(w http.ResponseWriter, r *http.Request) error {
 	return nil
+}
+
+// Get /account
+func (s *APIServer) hadleGetAccount(w http.ResponseWriter, r *http.Request) error {
+	accounts, err := s.store.GetAccounts()
+	if err != nil {
+		return err
+	}
+	return WriteJSON(w, http.StatusOK, accounts)
+
 }
