@@ -9,8 +9,8 @@ import (
 )
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
-	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(v)
 }
 
@@ -41,6 +41,9 @@ func NewAPIServer(listenAddr string) *APIServer {
 func (s *APIServer) Run() {
 	router := mux.NewRouter()
 	router.HandleFunc("/account", makeHTTHandleFunc(s.hadleAccount))
+
+	router.HandleFunc("/account/{id}", makeHTTHandleFunc(s.hadleGetAccount))
+
 	log.Println("JSON API server running on port: ", s.listenAddr)
 	http.ListenAndServe(s.listenAddr, router)
 }
@@ -56,7 +59,9 @@ func (s *APIServer) hadleAccount(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *APIServer) hadleGetAccount(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	id := mux.Vars(r)["id"]
+	fmt.Println(id)
+	return WriteJSON(w, http.StatusOK, &Account{})
 }
 
 func (s *APIServer) hadleCreateAccount(w http.ResponseWriter, r *http.Request) error {
